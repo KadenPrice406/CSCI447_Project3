@@ -121,23 +121,70 @@ class NeuralNetwork:
             return self.mse(self.predict(x)[0], y)
 
 
-if __name__ == '__main__':
-    AE = NeuralNetwork([2, 3, 3], use_softmax=False, use_cel=False)
-    predict = AE.predict(np.array([[1],
-                                   [0]]))
-    mse = AE.mse(predict[0], np.array([[0],
-                                       [1],
-                                       [0]]))
-    print(mse)
-    min_mse = np.inf
-    for _ in range(10000):
-        test = AE.backpropagation(np.array([[1],
-                                            [0]]),
-                                  np.array([[0],
-                                            [1],
-                                            [0]]),
-                                  0.01)
-        if test < min_mse:
-            min_mse = test
-    print(min_mse)
+class Autoencoder:
 
+    def __init__(self, input_dim: int, hidden_dim: int, learning_rate: float = 0.05):
+        if hidden_dim >= input_dim:
+            raise ValueError("hidden_dim must be strictly smaller than input_dim")
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.learning_rate = learning_rate
+        self.model = NeuralNetwork([input_dim, hidden_dim, input_dim], use_softmax=False, use_cel=False)
+
+    def encode(self, x: np.ndarray[float]) -> np.ndarray[float]:
+        x = np.asarray(x, dtype=float).reshape(-1, 1)
+        h_in = np.concatenate((x, np.ones((1, 1))), axis=0)
+        z = self.model.weights[0] @ h_in
+        return self.model.logistic(z)
+
+    def reconstruct(self, x: np.ndarray[float]) -> np.ndarray[float]:
+        x = np.asarray(x, dtype=float).reshape(-1, 1)
+        h = self.encode(x)
+        h_with_bias = np.concatenate((h, np.ones((1, 1))), axis=0)
+        return self.model.weights[1] @ h_with_bias
+
+    def train(self, X: np.ndarray[float], epochs: int = 1000):
+        X = np.asarray(X, dtype=float)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+
+        for _ in range(epochs):
+            for row in X:
+                x = row.reshape(-1, 1)
+                self.model.backpropagation(x, x, self.learning_rate)
+
+
+def train_autoencoder(X: np.ndarray[float], hidden_dim: int, epochs: int = 1000, learning_rate: float = 0.05):
+    X = np.asarray(X, dtype=float)
+    if X.ndim == 1:
+        X = X.reshape(1, -1)
+
+    input_dim = X.shape[1]
+    autoencoder = Autoencoder(input_dim=input_dim, hidden_dim=hidden_dim, learning_rate=learning_rate)
+    autoencoder.train(X, epochs=epochs)
+    return autoencoder
+
+
+if __name__ == '__main__':
+    X_train = np.array([
+        [1.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 1.0],
+        [0.0, 0.0],
+    ])
+
+    AE = Autoencoder(input_dim=2, hidden_dim=1, learning_rate=0.001)
+    initial_reconstructions = np.array([AE.reconstruct(x).ravel() for x in X_train])
+    initial_mse = np.mean((initial_reconstructions - X_train) ** 2)
+    print("Initial reconstruction MSE:", initial_mse)
+
+    AE.train(X_train, epochs=1000)
+
+    reconstructions = np.array([AE.reconstruct(x).ravel() for x in X_train])
+    final_mse = np.mean((reconstructions - X_train) ** 2)
+    print("Final reconstruction MSE:", final_mse)
+    print("Encoded first sample:")
+    print(AE.encode(X_train[0]))
+    print("Reconstruction of first sample:")
+    print(AE.reconstruct(X_train[0]))
