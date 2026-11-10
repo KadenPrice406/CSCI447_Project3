@@ -315,6 +315,33 @@ def train_autoencoder(X: np.ndarray[float], hidden_dim: int, epochs: int = 1000,
     autoencoder.train(X, epochs=epochs)
     return autoencoder
 
+def experiment_runner():
+    # Load and preprocess datasets
+    loader = DatasetLoaderPreprocessor(data_dir="data")
+
+    datasets = {
+        "breast_cancer": loader.load_breast_cancer,
+        "car_evaluation": loader.load_car_evaluation,
+        "congressional_votes": loader.load_congressional_votes,
+        "abalone": loader.load_abalone,
+        "computer_hardware": loader.load_computer_hardware,
+        "forest_fires": loader.load_forest_fires,
+    }
+
+    for name, load_func in datasets.items():
+        try:
+            X, y = load_func()
+            print(f"Dataset: {name}, Features shape: {X.shape}, Target shape: {y.shape}")
+            # Train autoencoder on the features
+            autoencoder = train_autoencoder(X, hidden_dim=2, epochs=1000, learning_rate=0.01)
+            print(f"Autoencoder trained on {name} dataset.")
+        except Exception as e:
+            print(f"Error processing dataset {name}: {e}")
+
+    
+
+    
+
 
 if __name__ == '__main__':
     X_train = np.array([
